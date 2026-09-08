@@ -1,0 +1,13 @@
+[project]
+name = "sentinel"
+version = "0.1.0"
+description = "Home Security"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "insightface>=1.0.1",
+    "numpy>=2.5.2",
+    "opencv-python>=5.0.0.93",
+    "python-dotenv>=1.2.3",
+    "streamlit>=1.63.0",
+]
