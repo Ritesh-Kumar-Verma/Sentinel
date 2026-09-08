@@ -1,16 +1,3 @@
-# import cv2
-# from src.face_recognition.face_encoder import FaceEncoder
-
-# IMAGE_PATH = "test_images/Tony.png"
-
-
-# def main():
-#     img = cv2.imread(IMAGE_PATH)
-#     encoder = FaceEncoder()
-#     emb = encoder.encode(img)
-#     print(emb.shape)
-# if __name__ == "__main__":
-#     main()
 
 
 import streamlit as st

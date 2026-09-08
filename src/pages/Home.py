@@ -2,12 +2,26 @@ import streamlit as st
 import cv2
 import time
 from PIL import Image
+import os
+import numpy as np
 from pathlib import Path
+from src.face_recognition.face_detector import FaceDetector
+from src.face_recognition.face_encoder import FaceEncoder
+from src.face_recognition.recognize import recognize_frame
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 
 class Home_UI:
     
     def __init__(self,rstp_url) -> None:
+        self.DATABASE_PATH = os.getenv('DATABASE_PATH')
+        self.encoder = FaceEncoder()
+        self.database = self.load_database()
+        self.face_detector = FaceDetector()
+
         self.rstp_url = rstp_url
         st.set_page_config(
             page_title="Sentinel",
@@ -317,13 +331,18 @@ class Home_UI:
                 '<div class="nav-item">⚙️ &nbsp; Settings</div>',
                 unsafe_allow_html=True
             )
+        
+        
+        
+        
+        
+
+
+        # ---------- Main layout ----------
         video_source = st.selectbox(
             "Video Source",
             ["Webcam", "RTSP"]
         )
-
-
-        # ---------- Main layout ----------
         video_col, detection_col = st.columns(
             [2.15, 1],
             gap="medium"
@@ -396,7 +415,63 @@ class Home_UI:
             cap.release()
             
             
+    
+    def detect_face(self,img):
+
+
+        faces = self.face_detector.detect(img)
+
+        for i, face in enumerate(faces):
+            bbox = face.bbox.astype(int)
             
+            x1, y1, x2, y2 = bbox
+
+            # print(
+            #     f"Face {i + 1}: "
+            #     f"({x1}, {y1}) -> ({x2}, {y2})"
+            # )
+
+            cv2.rectangle(
+                img,
+                (x1, y1),
+                (x2, y2),
+                (0, 255, 0),
+                2,
+            )
+
+        return img
+
+    def load_database(self):
+        """
+        Load all face embeddings from the database.
+
+        Returns:
+            dict:
+                {
+                    "Name1": embedding,
+                    "Name2": embedding
+                }
+        """
+
+        database = {}
+
+        for filename in os.listdir(self.DATABASE_PATH):
+            if not filename.endswith(".npy"):
+                continue
+
+            person_name = os.path.splitext(filename)[0]
+
+            path = os.path.join(
+                self.DATABASE_PATH,
+                filename,
+            )
+
+            embedding = np.load(path)
+
+            database[person_name] = embedding
+
+        return database
+
 
 
     def get_webcam_video(
@@ -407,11 +482,6 @@ class Home_UI:
     ):
         """
         Get webcam video in Streamlit.
-
-        Args:
-            camera_index: Webcam index (0 = default webcam)
-            width: Display width
-            height: Display height
         """
 
         cap = cv2.VideoCapture(camera_index)
@@ -420,8 +490,10 @@ class Home_UI:
             st.error("❌ Unable to connect to webcam.")
             return
 
-        # Create ONE Streamlit placeholder
         frame_placeholder = st.empty()
+
+        frame_count = 0
+        recognized_frame = None
 
         try:
             while True:
@@ -439,19 +511,38 @@ class Home_UI:
                     interpolation=cv2.INTER_AREA
                 )
 
-                # Convert BGR → RGB
-                frame = cv2.cvtColor(
-                    frame,
+                # Recognize every 5 frames
+                if frame_count >= 29:
+
+                    recognized_frame = recognize_frame(
+                        frame,
+                        database=self.database,
+                        encoder=self.encoder
+                    )
+
+                    frame_count = 0
+
+                else:
+                    frame_count += 1
+
+                # Use the last recognized frame
+                if recognized_frame is not None:
+                    display_frame = recognized_frame
+                else:
+                    display_frame = frame
+
+                # BGR → RGB
+                display_frame = cv2.cvtColor(
+                    display_frame,
                     cv2.COLOR_BGR2RGB
                 )
 
-                # Display/update same element
                 frame_placeholder.image(
-                    frame,
+                    display_frame,
                     width=width
                 )
 
-                time.sleep(0.03)
+                # time.sleep(0.03)
 
         finally:
             cap.release()

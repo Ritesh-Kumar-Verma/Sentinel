@@ -1,15 +1,15 @@
 import cv2
+import streamlit as st
 
 from face_detector import FaceDetector
+from recognize import recognize_frame
 
 
-IMAGE_PATH = "../../test_images/Tony.png"
+IMAGE_PATH = "../../test_images/image.png"
 OUTPUT_PATH = "../../results/detection_result.jpg"
 
 
-
-
-def main():
+def face_detect():
     image = cv2.imread(IMAGE_PATH)
 
     if image is None:
@@ -47,5 +47,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
- 
+    # face_detect()
+    frame = recognize_frame(cv2.imread(IMAGE_PATH))
+    cv2.imwrite(OUTPUT_PATH,frame)
+    

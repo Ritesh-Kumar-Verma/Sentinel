@@ -3,14 +3,15 @@ import os
 import cv2
 import numpy as np
 
-from face_encoder import FaceEncoder
+
+from .face_encoder import FaceEncoder
 
 
-DATASET_PATH = "../../dataset"
-DATABASE_PATH = "../../database"
+DATASET_PATH = "G:/AI/Sentinel/dataset"
+DATABASE_PATH = "G:/AI/Sentinel/database"
 
 
-def main():
+def database_builder():
     os.makedirs(DATABASE_PATH, exist_ok=True)
 
     encoder = FaceEncoder()
@@ -81,5 +82,5 @@ def main():
         )
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
