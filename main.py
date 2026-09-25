@@ -1,7 +1,7 @@
 
 
 import streamlit as st
-from src.pages.Test_Display import display_rtsp_video
+# from src.pages.Test_Display import display_rtsp_video
 from dotenv import load_dotenv
 from src.pages.Home import Home_UI
 import os
@@ -13,9 +13,9 @@ st.set_page_config(
     layout="wide"
 )
 
-home = Home_UI(rstp_url=os.getenv("RTSP_URL"))
+home = Home_UI(rtsp_url=os.getenv("RTSP_URL"))
 
 
+# # display_rtsp_video(os.getenv("RTSP_URL"))
 
 
-# display_rtsp_video(os.getenv("RTSP_URL"))

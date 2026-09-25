@@ -276,5 +276,84 @@ def recognize_frame(frame,database,encoder, threshold=0.5):
 
 
 
+
+
+
+def recognize_frame_seprate(frame, database, unknown_database, encoder, threshold=0.5):
+    """
+    Returns:
+        dict: {"Name": cropped_face_image} for all faces found in the frame.
+    """
+    if frame is None:
+        return {}
+    
+    height, width = frame.shape[:2]
+    margin = 30 
+    
+    # Dictionary to hold the faces we find in THIS specific frame
+    faces_in_frame = {}
+    
+    # Detect faces
+    faces = encoder.app.get(frame)
+
+    for face in faces:
+        embedding = face.embedding
+        
+        # 1. First, check if they are in the KNOWN database
+        name, similarity = recognize_face(embedding, database, threshold=threshold)
+
+        # 2. If they are Unknown, check if we've seen this specific unknown before
+        if name == "Unknown":
+            # Re-use your exact same recognize_face function, but on the strangers!
+            unk_name, unk_sim = recognize_face(embedding, unknown_database, threshold=threshold)
+            
+            if unk_name == "Unknown":
+                # Brand new stranger! Assign them a number and save their embedding
+                new_id = len(unknown_database) + 1
+                name = f"Unknown_{new_id}"
+                unknown_database[name] = embedding
+            else:
+                # We've seen this stranger before, use their assigned unknown number
+                name = unk_name
+
+        # Choose color
+        if "Unknown" in name:
+            color = (0, 0, 255)  # Red for all unknowns
+        else:
+            color = (0, 255, 0)  # Green for knowns
+
+        # ==========================================
+        # STEP 1: Draw EVERYTHING on the full frame
+        # ==========================================
+        bbox = face.bbox.astype(int)
+        x1, y1, x2, y2 = bbox
+
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+        label = name
+        (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+        label_top_y = y1 - text_height - baseline - 10
+        
+        cv2.rectangle(frame, (x1, label_top_y), (x1 + text_width + 10, y1), color, -1)
+        cv2.putText(frame, label, (x1 + 5, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        
+        # ==========================================
+        # STEP 2: Crop (after drawing)
+        # ==========================================
+        start_y = max(0, label_top_y - margin)
+        end_y = min(height, y2 + margin)
+        start_x = max(0, x1 - margin)
+        
+        max_x_needed = max(x2, x1 + text_width + 10)
+        end_x = min(width, max_x_needed + margin)
+        
+        cropped_face = frame[start_y:end_y, start_x:end_x]
+        
+        # 3. Add to our dictionary for this frame
+        faces_in_frame[name] = cropped_face
+    
+    return faces_in_frame
+
+
+
 # if __name__ == "__main__":
 #     main()

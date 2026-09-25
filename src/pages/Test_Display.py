@@ -61,3 +61,6 @@ def display_rtsp_video(
 
 
 
+
+
+display_rtsp_video(rtsp_url='rtsp://admin:admin@123@192.168.1.240:554/cam/realmonitor?channel=4&subtype=0')

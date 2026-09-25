@@ -8,21 +8,22 @@ from pathlib import Path
 from src.face_recognition.face_detector import FaceDetector
 from src.face_recognition.face_encoder import FaceEncoder
 from src.face_recognition.recognize import recognize_frame
+from src.face_recognition.recognize import recognize_frame_seprate
 from dotenv import load_dotenv
-
+from src.face_recognition.database_builder import database_builder
 load_dotenv()
 
 
 
 class Home_UI:
     
-    def __init__(self,rstp_url) -> None:
+    def __init__(self,rtsp_url) -> None:
         self.DATABASE_PATH = os.getenv('DATABASE_PATH')
         self.encoder = FaceEncoder()
         self.database = self.load_database()
         self.face_detector = FaceDetector()
 
-        self.rstp_url = rstp_url
+        self.rtsp_url = rtsp_url
         st.set_page_config(
             page_title="Sentinel",
             page_icon="🛡️",
@@ -339,24 +340,35 @@ class Home_UI:
 
 
         # ---------- Main layout ----------
+        
+        database_refresh = st.button("Refresh Database")
+        
+        activate_recognition = st.button("Activate Recognition")
+        
+        if database_refresh:
+            database_builder()
+            
+        
+            
         video_source = st.selectbox(
-            "Video Source",
-            ["Webcam", "RTSP"]
+                "Video Source",
+                ["Webcam","RTSP" ]
         )
         video_col, detection_col = st.columns(
-            [2.15, 1],
-            gap="medium"
+                [2.15, 1],
+                gap="medium"
         )
-        
-        # ---------- Camera ----------
+            
+         # ---------- Camera ----------
         with video_col:
             if video_source == "Webcam":
+                # self.seprate_recognizer()
                 self.get_webcam_video()
 
             elif video_source == "RTSP":
-                self.get_rtsp_video(rtsp_url=rstp_url)
+                self.get_rtsp_video(rtsp_url=self.rtsp_url)
 
-        # ---------- Detection ----------
+            # ---------- Detection ----------
         with detection_col:
 
             st.markdown("""
@@ -400,6 +412,13 @@ class Home_UI:
                     (width, height),
                     interpolation=cv2.INTER_AREA
                 )
+                
+                frame = recognize_frame(
+                    frame=frame,
+                    database= self.database,
+                    encoder=self.encoder
+                )
+                
 
                 # Convert BGR → RGB
                 frame = cv2.cvtColor(
@@ -408,6 +427,7 @@ class Home_UI:
                 )
                 
                 frame_placeholder.image(frame)
+                
                 # Small delay
                 time.sleep(0.03)
 
@@ -492,9 +512,7 @@ class Home_UI:
 
         frame_placeholder = st.empty()
 
-        frame_count = 0
-        recognized_frame = None
-
+    
         try:
             while True:
 
@@ -511,34 +529,24 @@ class Home_UI:
                     interpolation=cv2.INTER_AREA
                 )
 
-                # Recognize every 5 frames
-                if frame_count >= 29:
+                
 
-                    recognized_frame = recognize_frame(
-                        frame,
-                        database=self.database,
-                        encoder=self.encoder
-                    )
+                frame = recognize_frame(
+                    frame,
+                    database=self.database,
+                    encoder=self.encoder
+                )
 
-                    frame_count = 0
 
-                else:
-                    frame_count += 1
-
-                # Use the last recognized frame
-                if recognized_frame is not None:
-                    display_frame = recognized_frame
-                else:
-                    display_frame = frame
-
+                
                 # BGR → RGB
-                display_frame = cv2.cvtColor(
-                    display_frame,
+                frame = cv2.cvtColor(
+                    frame,
                     cv2.COLOR_BGR2RGB
                 )
 
                 frame_placeholder.image(
-                    display_frame,
+                    frame,
                     width=width
                 )
 
@@ -546,3 +554,138 @@ class Home_UI:
 
         finally:
             cap.release()
+
+
+    def seprate_recognizer(self, camera_index=0, width=700, height=430):
+    
+        cap = cv2.VideoCapture(camera_index)
+
+        if not cap.isOpened():
+            st.error("Unable to connect to camera.")
+            return
+
+        st.markdown("### Live Feed")
+        video_placeholder = st.empty()
+        
+        st.markdown("### Identified Log")
+        gallery_placeholder = st.empty()
+        
+        # d maps names to their cropped image for display (e.g., {"John": img, "Unknown_1": img})
+        d = {} 
+        
+        # unknown_database maps names to their mathematical embeddings (e.g., {"Unknown_1": [0.4, 0.2, ...]})
+        unknown_database = {} 
+        
+        try:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                    
+                frame = cv2.resize(frame, (width, height))
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)    
+                
+                # Run recognizer (it now returns a dictionary of who is currently on screen)
+                current_frame_faces = recognize_frame_seprate(
+                    frame=frame.copy(),
+                    database=self.database,
+                    unknown_database=unknown_database, # Pass the tracker in!
+                    encoder=self.encoder
+                )
+                
+                # Update our display dictionary with the latest crops
+                # If John is on screen, it updates John's photo. If Unknown_1 is there, it updates theirs.
+                for name, cropped_img in current_frame_faces.items():
+                    d[name] = cropped_img
+                
+                # Display the dictionary 'd' in a wrapping grid
+                if len(d) > 0:
+                    with gallery_placeholder.container():
+                        items = list(d.items())
+                        cols_per_row = 4
+                        
+                        for i in range(0, len(items), cols_per_row):
+                            row_items = items[i:i + cols_per_row]
+                            cols = st.columns(cols_per_row)
+                            
+                            for col_idx, (person_name, person_img) in enumerate(row_items):
+                                cols[col_idx].image(
+                                    person_img, 
+                                    caption=person_name, 
+                                    use_column_width=True
+                                )
+                                
+                # Update live video feed
+                video_placeholder.image(frame, channels="RGB")
+
+        finally:
+            cap.release()
+        
+            cap = cv2.VideoCapture(camera_index)
+
+            if not cap.isOpened():
+                st.error("Unable to connect to camera.")
+                return
+
+            st.markdown("### Live Feed")
+            video_placeholder = st.empty()
+            
+            st.markdown("### Identified Log")
+            gallery_placeholder = st.empty()
+            
+            # 1. Initialize the dictionary and the unknown counter
+            d = {} 
+            unknown_count = 0
+            
+            try:
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                        
+                    frame = cv2.resize(frame, (width, height))
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)    
+                    
+                    # Run recognizer (returns our new list of tuples)
+                    faces_data = recognize_frame_seprate(
+                        frame=frame.copy(),
+                        database=self.database,
+                        encoder=self.encoder
+                    )
+                    
+                    # 2. Process the list of detected faces
+                    for face_img, found, name in faces_data:
+                        if found:
+                            if name != "Unknown":
+                                # Add or update known person's latest frame
+                                d[name] = face_img
+                            else:
+                                # Generate a unique name for the unknown person
+                                unknown_count += 1
+                                unique_name = f"Unknown_{unknown_count}"
+                                d[unique_name] = face_img
+                    
+                    # 3. Display the dictionary 'd' in a wrapping grid
+                    if len(d) > 0:
+                        with gallery_placeholder.container():
+                            items = list(d.items())
+                            cols_per_row = 4 # Adjust this to fit your screen width
+                            
+                            # Chunk the dictionary into rows
+                            for i in range(0, len(items), cols_per_row):
+                                row_items = items[i:i + cols_per_row]
+                                cols = st.columns(cols_per_row)
+                                
+                                # Populate the columns for this row
+                                for col_idx, (person_name, person_img) in enumerate(row_items):
+                                    cols[col_idx].image(
+                                        person_img, 
+                                        caption=person_name, 
+                                        use_column_width=True
+                                    )
+                                    
+                    # Update live video feed
+                    video_placeholder.image(frame, channels="RGB")
+
+            finally:
+                cap.release()
