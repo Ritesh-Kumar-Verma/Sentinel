@@ -1,15 +1,9 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-.venv
-/dataset/
-/database/
-/results/
-/test_images/
-.env
+dataset/Ritesh/Ritesh.jpg
+dataset/Ritesh/IMG20260608113307.jpg
+dataset/Papa/20220709_103358 conv.jpeg
+dataset/Mammi/IMG20220711134414.jpg
+dataset/Anjali/20220711_112426 conv.jpeg
+database/Ritesh.npy
+database/Papa.npy
+database/Mammi.npy
+database/Anjali.npy
